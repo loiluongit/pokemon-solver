@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { TileDetection, TileFrame } from '../cv/tileDetect'
+import type { ValidPair, Point as SolverPoint } from '../solver/types'
 
 interface BoardCanvasProps {
   imageUrl: string | null
@@ -8,6 +9,7 @@ interface BoardCanvasProps {
   frame: TileFrame | null
   frameRows: number
   frameCols: number
+  pair: ValidPair | null
 }
 
 export const BoardCanvas = ({
@@ -17,6 +19,7 @@ export const BoardCanvas = ({
   frame,
   frameRows,
   frameCols,
+  pair,
 }: BoardCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -37,7 +40,7 @@ export const BoardCanvas = ({
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
 
-      if (showHighlightedTiles) {
+          if (showHighlightedTiles) {
         if (frame) {
           ctx.strokeStyle = '#16a34a'
           ctx.lineWidth = 2
@@ -76,8 +79,56 @@ export const BoardCanvas = ({
           }
         }
       }
+      // draw pair path if available
+      if (pair && pair.path && pair.path.length > 0) {
+        const rows = frame ? frameRows : Math.max(1, frameRows || 9)
+        const cols = frame ? frameCols : Math.max(1, frameCols || 16)
+        let cellX = 0
+        let cellY = 0
+        let offsetX = 0
+        let offsetY = 0
+        if (frame) {
+          cellX = frame.width / cols
+          cellY = frame.height / rows
+          offsetX = frame.x
+          offsetY = frame.y
+        } else {
+          cellX = canvas.width / cols
+          cellY = canvas.height / rows
+          offsetX = 0
+          offsetY = 0
+        }
+
+        ctx.save()
+        ctx.strokeStyle = 'red'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        pair.path.forEach((p, i) => {
+          const pp = p as SolverPoint
+          // solver uses a padded board (1-cell border) internally; shift coordinates
+          // back by 1 to map to the visible grid
+          const px = pp.c - 1
+          const py = pp.r - 1
+          const x = offsetX + px * cellX + cellX / 2
+          const y = offsetY + py * cellY + cellY / 2
+          if (i === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        })
+        ctx.stroke()
+        // endpoints
+        const start = pair.path[0] as SolverPoint
+        const end = pair.path[pair.path.length - 1] as SolverPoint
+        const sx = offsetX + (start.c - 1) * cellX + cellX / 2
+        const sy = offsetY + (start.r - 1) * cellY + cellY / 2
+        const ex = offsetX + (end.c - 1) * cellX + cellX / 2
+        const ey = offsetY + (end.r - 1) * cellY + cellY / 2
+        ctx.fillStyle = 'rgba(255,0,0,0.9)'
+        ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill()
+        ctx.restore()
+      }
     }
-  }, [frame, frameCols, frameRows, _highlightedTiles, imageUrl, showHighlightedTiles])
+  }, [frame, frameCols, frameRows, _highlightedTiles, imageUrl, showHighlightedTiles, pair])
 
   return <canvas className="board-canvas" ref={canvasRef} />
 }

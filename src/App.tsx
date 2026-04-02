@@ -16,6 +16,7 @@ import {
 import type { ValidPair } from './features/solver/types'
 import { ImageUploader } from './features/upload/ImageUploader'
 import { BoardCanvas } from './features/preview/BoardCanvas'
+import findPairs from './features/solver/findPairs'
 
 const BOARD_ROWS = 9
 const BOARD_COLS = 16
@@ -23,7 +24,7 @@ const BOARD_COLS = 16
 function App() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [matrix, setMatrix] = useState<RgbValue[][]>([])
-  const [tileTags, setTileTags] = useState<string[][]>([])
+  const [tileTags, setTileTags] = useState<number[][]>([])
   const [confidence, setConfidence] = useState<number[][]>([])
   const [pairs, setPairs] = useState<ValidPair[]>([])
   const [pairIndex, setPairIndex] = useState(0)
@@ -83,10 +84,14 @@ function App() {
       }
 
       setMatrix(built.matrix)
-      setTileTags(tagRgbMatrix(built.matrix, 2))
+      const tagM = tagRgbMatrix(built.matrix, 3)
+      setTileTags(tagM)
       setConfidence(built.confidence)
       // Temporary safe mode: detect/classify tiles only, skip path solving.
-      setPairs([])
+      const p = findPairs(tagM)
+      // eslint-disable-next-line no-debugger
+      debugger;
+      setPairs(p)
       setPairIndex(0)
       setStatus((prev) => `${prev} Tile-only mode complete.`)
     } catch {
@@ -133,6 +138,7 @@ function App() {
             frame={detectedFrame}
             frameRows={detectedRows}
             frameCols={detectedCols}
+            pair={currentPair}
           />
         </section>
         <section className="panel">

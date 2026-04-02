@@ -11,7 +11,7 @@ export const PairOverlay = ({ pair }: PairOverlayProps) => {
     <div className="overlay-panel">
       <h3>Current Pair</h3>
       <p>
-        Tile {pair.value}: ({pair.from.row}, {pair.from.col}) - ({pair.to.row}, {pair.to.col})
+        Tile {pair.id}
       </p>
       <p>Path nodes: {pair.path.length}</p>
     </div>

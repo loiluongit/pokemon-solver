@@ -1,14 +1,12 @@
 export type BoardMatrix = number[][]
 
 export interface Point {
-  row: number
-  col: number
+  r: number
+  c: number
 }
 
 export interface ValidPair {
-  from: Point
-  to: Point
-  value: number
+  id: number
   path: Point[]
 }
 

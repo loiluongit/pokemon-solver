@@ -23,31 +23,21 @@ export interface RgbMatrixBuildResult {
 }
 
 interface ColorCluster {
-  label: string
+  label: number
   r: number
   g: number
   b: number
 }
 
-const toAlphabetLabel = (index: number): string => {
-  let n = index
-  let out = ''
-  while (n >= 0) {
-    out = String.fromCharCode((n % 26) + 65) + out
-    n = Math.floor(n / 26) - 1
-  }
-  return out
-}
-
-export const tagRgbMatrix = (matrix: RgbValue[][], channelTolerance = 4): string[][] => {
-  const labels = matrix.map((row) => row.map(() => ''))
+export const tagRgbMatrix = (matrix: RgbValue[][], channelTolerance = 3): number[][] => {
+  const labels = matrix.map((row) => row.map(() => 0))
   const clusters: ColorCluster[] = []
 
   for (let r = 0; r < matrix.length; r += 1) {
     for (let c = 0; c < matrix[0].length; c += 1) {
       const value = matrix[r][c]
       if (value.r === 0 && value.g === 0 && value.b === 0) {
-        labels[r][c] = ''
+        labels[r][c] = 0
         continue
       }
 
@@ -61,7 +51,7 @@ export const tagRgbMatrix = (matrix: RgbValue[][], channelTolerance = 4): string
       if (matched) {
         labels[r][c] = matched.label
       } else {
-        const label = toAlphabetLabel(clusters.length)
+        const label = clusters.length + 1
         clusters.push({ label, r: value.r, g: value.g, b: value.b })
         labels[r][c] = label
       }
@@ -106,8 +96,10 @@ export const buildAverageRgbMatrixFromTiles = (
 
   for (const tile of tiles) {
     const data = tile.imageData.data
-    const width = tile.imageData.width
-    const height = tile.imageData.height
+    const inferred = Math.floor(Math.sqrt(data.length / 4)) || 0
+    const idata = tile.imageData as ImageData & { width?: number; height?: number }
+    const width = idata.width ?? inferred
+    const height = idata.height ?? inferred
     const border = 5
     const useInnerArea = width > border * 2 && height > border * 2
     const startX = useInnerArea ? border : 0

@@ -2,7 +2,7 @@ import type { RgbValue } from '../recognition/buildMatrix'
 
 interface MatrixPanelProps {
   matrix: RgbValue[][]
-  tags: string[][]
+  tags: number[][]
   confidence: number[][]
 }
 
