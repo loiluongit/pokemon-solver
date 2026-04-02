@@ -33,18 +33,30 @@ export const BoardCanvas = ({
       if (!canvas) return
       const maxWidth = 1000
       const scale = Math.min(1, maxWidth / img.width)
-      canvas.width = Math.round(img.width * scale)
-      canvas.height = Math.round(img.height * scale)
+      const imageW = Math.round(img.width * scale)
+      const imageH = Math.round(img.height * scale)
+
+      // Determine one-tile padding in pixels. Use the frame cell height when
+      // available, otherwise derive from the full image and provided frameRows.
+      const rows = frame ? frameRows : Math.max(1, frameRows || 9)
+      const cellHForPadding = frame ? frame.height / frameRows : imageH / rows
+      const extra = Math.round(cellHForPadding)
+
+      // Make canvas taller by extra padding on top and bottom and draw the
+      // image shifted down by `extra` so there's blank space above it.
+      canvas.width = imageW
+      canvas.height = imageH + extra * 2
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, extra, imageW, imageH)
 
-          if (showHighlightedTiles) {
+      if (showHighlightedTiles) {
         if (frame) {
+          const frameY = frame.y + extra
           ctx.strokeStyle = '#16a34a'
           ctx.lineWidth = 2
-          ctx.strokeRect(frame.x, frame.y, frame.width, frame.height)
+          ctx.strokeRect(frame.x, frameY, frame.width, frame.height)
 
           ctx.strokeStyle = '#22c55e'
           ctx.lineWidth = 1
@@ -56,7 +68,7 @@ export const BoardCanvas = ({
           for (let row = 0; row < frameRows; row += 1) {
             for (let col = 0; col < frameCols; col += 1) {
               const x = frame.x + col * cellW + border
-              const y = frame.y + row * cellH + border
+              const y = frameY + row * cellH + border
               const w = Math.max(1, cellW - border * 2)
               const h = Math.max(1, cellH - border * 2)
               ctx.strokeRect(x, y, w, h)
@@ -64,7 +76,7 @@ export const BoardCanvas = ({
           }
 
           for (let r = 1; r < frameRows; r += 1) {
-            const y = frame.y + (frame.height * r) / frameRows
+            const y = frameY + (frame.height * r) / frameRows
             ctx.beginPath()
             ctx.moveTo(frame.x, y)
             ctx.lineTo(frame.x + frame.width, y)
@@ -73,8 +85,8 @@ export const BoardCanvas = ({
           for (let c = 1; c < frameCols; c += 1) {
             const x = frame.x + (frame.width * c) / frameCols
             ctx.beginPath()
-            ctx.moveTo(x, frame.y)
-            ctx.lineTo(x, frame.y + frame.height)
+            ctx.moveTo(x, frameY)
+            ctx.lineTo(x, frameY + frame.height)
             ctx.stroke()
           }
         }
@@ -91,12 +103,14 @@ export const BoardCanvas = ({
           cellX = frame.width / cols
           cellY = frame.height / rows
           offsetX = frame.x
-          offsetY = frame.y
+          offsetY = frame.y + extra
         } else {
-          cellX = canvas.width / cols
-          cellY = canvas.height / rows
+          // When no frame, the visible image area is imageH tall and was drawn
+          // starting at `extra` vertical offset inside the canvas.
+          cellX = imageW / cols
+          cellY = imageH / rows
           offsetX = 0
-          offsetY = 0
+          offsetY = extra
         }
 
         ctx.save()

@@ -18,14 +18,15 @@ import { ImageUploader } from './features/upload/ImageUploader'
 import { BoardCanvas } from './features/preview/BoardCanvas'
 import findPairs from './features/solver/findPairs'
 
-const BOARD_ROWS = 9
-const BOARD_COLS = 16
+// Defaults: 16 columns x 9 rows
 
 function App() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [matrix, setMatrix] = useState<RgbValue[][]>([])
   const [tileTags, setTileTags] = useState<number[][]>([])
-  const [confidence, setConfidence] = useState<number[][]>([])
+  const [boardRows, setBoardRows] = useState<number>(9)
+  const [boardCols, setBoardCols] = useState<number>(16)
+  
   const [pairs, setPairs] = useState<ValidPair[]>([])
   const [pairIndex, setPairIndex] = useState(0)
   const [status, setStatus] = useState('Upload an image to start')
@@ -35,6 +36,7 @@ function App() {
   const [detectedFrame, setDetectedFrame] = useState<TileFrame | null>(null)
   const [detectedRows, setDetectedRows] = useState(0)
   const [detectedCols, setDetectedCols] = useState(0)
+  const [showDetails, setShowDetails] = useState(false)
 
   const imageUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
   const currentPair = pairs[pairIndex] ?? null
@@ -62,35 +64,31 @@ function App() {
       let built: RgbMatrixBuildResult
       if (detected && detected.tiles.length > 10) {
         const frameTiles = splitFrameIntoTiles(preprocessed, detected.frame, {
-          rows: BOARD_ROWS,
-          cols: BOARD_COLS,
+          rows: boardRows,
+          cols: boardCols,
         })
-        built = buildAverageRgbMatrixFromTiles(frameTiles, BOARD_ROWS, BOARD_COLS)
+        built = buildAverageRgbMatrixFromTiles(frameTiles, boardRows, boardCols)
         setDetectedTiles(detected.detections)
         setDetectedFrame(detected.frame)
-        setDetectedRows(BOARD_ROWS)
-        setDetectedCols(BOARD_COLS)
-        setStatus(`Detected frame with fixed grid ${BOARD_ROWS} rows x ${BOARD_COLS} cols.`)
+        setDetectedRows(boardRows)
+        setDetectedCols(boardCols)
+        setStatus(`Detected frame with fixed grid ${boardRows} rows x ${boardCols} cols.`)
       } else {
         const boardRegion = detectBoardRegion(preprocessed)
         const boardCanvas = cropBoard(preprocessed, boardRegion)
-        const tiles = splitBoardIntoTiles(boardCanvas, { rows: BOARD_ROWS, cols: BOARD_COLS })
-        built = buildAverageRgbMatrixFromTiles(tiles, BOARD_ROWS, BOARD_COLS)
+        const tiles = splitBoardIntoTiles(boardCanvas, { rows: boardRows, cols: boardCols })
+        built = buildAverageRgbMatrixFromTiles(tiles, boardRows, boardCols)
         setDetectedTiles([])
         setDetectedFrame(null)
         setDetectedRows(0)
         setDetectedCols(0)
-        setStatus(`Fallback grid mode used (${BOARD_ROWS}x${BOARD_COLS}).`)
+        setStatus(`Fallback grid mode used (${boardRows}x${boardCols}).`)
       }
 
       setMatrix(built.matrix)
       const tagM = tagRgbMatrix(built.matrix, 3)
       setTileTags(tagM)
-      setConfidence(built.confidence)
-      // Temporary safe mode: detect/classify tiles only, skip path solving.
       const p = findPairs(tagM)
-      // eslint-disable-next-line no-debugger
-      debugger;
       setPairs(p)
       setPairIndex(0)
       setStatus((prev) => `${prev} Tile-only mode complete.`)
@@ -113,6 +111,26 @@ function App() {
 
       <div className="toolbar">
         <ImageUploader onFileSelected={setImageFile} />
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+          Cols:
+          <input
+            type="number"
+            min={1}
+            value={boardCols}
+            onChange={(e) => setBoardCols(Math.max(1, Number(e.target.value) || 1))}
+            style={{ width: 68 }}
+          />
+        </label>
+        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+          Rows:
+          <input
+            type="number"
+            min={1}
+            value={boardRows}
+            onChange={(e) => setBoardRows(Math.max(1, Number(e.target.value) || 1))}
+            style={{ width: 68 }}
+          />
+        </label>
         <button type="button" onClick={processImage} disabled={!imageFile || isProcessing}>
           {isProcessing ? 'Processing...' : 'Process'}
         </button>
@@ -125,6 +143,9 @@ function App() {
         </button>
         <button type="button" onClick={() => setShowDetectedTiles((prev) => !prev)} disabled={detectedTiles.length === 0}>
           {showDetectedTiles ? 'Hide RGB area' : 'Show RGB area'}
+        </button>
+        <button type="button" onClick={() => setShowDetails((prev) => !prev)}>
+          {showDetails ? 'Hide details' : 'Show details'}
         </button>
       </div>
 
@@ -141,10 +162,12 @@ function App() {
             pair={currentPair}
           />
         </section>
-        <section className="panel">
-          <PairOverlay pair={currentPair} />
-          <MatrixPanel matrix={matrix} tags={tileTags} confidence={confidence} />
-        </section>
+        {showDetails && (
+          <section className="panel">
+            <PairOverlay pair={currentPair} />
+            <MatrixPanel matrix={matrix} tags={tileTags} />
+          </section>
+        )}
       </div>
     </main>
   )

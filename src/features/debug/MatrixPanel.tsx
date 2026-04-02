@@ -3,10 +3,9 @@ import type { RgbValue } from '../recognition/buildMatrix'
 interface MatrixPanelProps {
   matrix: RgbValue[][]
   tags: number[][]
-  confidence: number[][]
 }
 
-export const MatrixPanel = ({ matrix, tags, confidence }: MatrixPanelProps) => {
+export const MatrixPanel = ({ matrix, tags }: MatrixPanelProps) => {
   if (matrix.length === 0) return <p>Matrix not generated yet.</p>
 
   return (
@@ -26,21 +25,6 @@ export const MatrixPanel = ({ matrix, tags, confidence }: MatrixPanelProps) => {
                       <div className="rgb-b">{value.b}</div>
                     </div>
                   </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h3>Confidence</h3>
-      <div className="matrix-table-wrap">
-        <table className="matrix-table confidence-table">
-          <tbody>
-            {confidence.map((row, rowIndex) => (
-              <tr key={`c-${rowIndex}`}>
-                {row.map((value, colIndex) => (
-                  <td key={`c-${rowIndex}-${colIndex}`}>{value.toFixed(2)}</td>
                 ))}
               </tr>
             ))}

@@ -13,9 +13,6 @@ const findPairs = (boardData: number[][]): ValidPair[] => {
   const cols = boardData[0].length;
   const board = addPadding(boardData); // Add padding to simplify edge cases
 
-  // eslint-disable-next-line no-debugger
-  debugger;
-
   // --- HELPER: CHECK IF A STRAIGHT LINE IS CLEAR ---
   const checkLineClear = (r1: number, c1: number, r2: number, c2: number) => {
     if (r1 !== r2 && c1 !== c2) return false;
@@ -55,8 +52,8 @@ const findPairs = (boardData: number[][]): ValidPair[] => {
     }
 
     // 3. PRIORITY: 2 TURNS (U-Shape / Z-Shape)
-    // Horizontal Sweep: Check all columns to see if we can route through them
-    for (let c = 0; c < cols; c++) {
+    // Horizontal Sweep: Check all columns including padded border (0..cols+1)
+    for (let c = 0; c <= cols + 1; c++) {
       if (c === c1 || c === c2) continue;
       if (board[r1][c] === 0 && board[r2][c] === 0) {
         if (checkLineClear(r1, c1, r1, c) && checkLineClear(r1, c, r2, c) && checkLineClear(r2, c, r2, c2)) {
@@ -64,8 +61,8 @@ const findPairs = (boardData: number[][]): ValidPair[] => {
         }
       }
     }
-    // Vertical Sweep: Check all rows to see if we can route through them
-    for (let r = 0; r < rows; r++) {
+    // Vertical Sweep: Check all rows including padded border (0..rows+1)
+    for (let r = 0; r <= rows + 1; r++) {
       if (r === r1 || r === r2) continue;
       if (board[r][c1] === 0 && board[r][c2] === 0) {
         if (checkLineClear(r1, c1, r, c1) && checkLineClear(r, c1, r, c2) && checkLineClear(r, c2, r2, c2)) {
@@ -82,24 +79,59 @@ const findPairs = (boardData: number[][]): ValidPair[] => {
   // --- MAIN SCAN: FIND MATCHING TILES ---
   for (let r1 = 0; r1 < rows; r1++) {
     for (let c1 = 0; c1 < cols; c1++) {
-      const id1 = board[r1][c1];
+      const pr1 = r1 + 1;
+      const pc1 = c1 + 1;
+      const id1 = board[pr1][pc1];
       if (id1 === 0) continue;
 
       for (let r2 = 0; r2 < rows; r2++) {
         for (let c2 = 0; c2 < cols; c2++) {
-          // Avoid matching a tile with itself or matching tiles in reverse order (efficiency)
+          // Avoid matching a tile with itself.
           if (r1 === r2 && c1 === c2) continue;
-          
-          if (board[r2][c2] === id1) {
-            const path = canConnect(r1, c1, r2, c2);
+
+          // Skip reverse-duplicate matches: only consider (r2,c2) that come after
+          // (r1,c1) in row-major order. This ensures that pairs like A->B and
+          // B->A are only found once.
+          if (r2 < r1 || (r2 === r1 && c2 <= c1)) continue;
+
+          const pr2 = r2 + 1;
+          const pc2 = c2 + 1;
+          if (board[pr2][pc2] === id1) {
+            const path = canConnect(pr1, pc1, pr2, pc2);
             if (path) validPairs.push({ id: id1, path });
           }
         }
       }
     }
   }
+  console.log(`Found ${validPairs.length} valid pairs.`);
+  console.log(validPairs);
+  // --- DEDUPLICATE: REMOVE PAIRS WITH THE SAME ID AND ENDPOINTS ---
+  // It's possible different discovery orders or paths produced duplicate
+  // entries for the same two tiles. Reduce to one canonical pair per
+  // unordered endpoint pair (keeps first-seen path for that pair).
+  const unique: ValidPair[] = [];
+  const seen = new Set<string>();
 
-  return validPairs;
+  for (const p of validPairs) {
+    if (!p.path || p.path.length < 2) continue;
+    const start = p.path[0];
+    const end = p.path[p.path.length - 1];
+
+    // canonicalize endpoints so order doesn't matter
+    const startKey = `${start.r},${start.c}`;
+    const endKey = `${end.r},${end.c}`;
+    const key = startKey < endKey
+      ? `${p.id}|${startKey}|${endKey}`
+      : `${p.id}|${endKey}|${startKey}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(p);
+    }
+  }
+
+  return unique;
 };
 
 export default findPairs
