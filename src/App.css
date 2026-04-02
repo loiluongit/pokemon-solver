@@ -1,0 +1,119 @@
+.app {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+h1 {
+  margin: 0 0 8px;
+}
+
+.status {
+  margin: 0 0 16px;
+  color: #444;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.uploader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.panel {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.board-canvas {
+  width: 100%;
+  border: 1px dashed #bbb;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.overlay-panel {
+  margin-bottom: 12px;
+}
+
+.matrix-panel pre {
+  background: #f6f6f6;
+  border-radius: 6px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.matrix-table-wrap {
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+.matrix-table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.matrix-table td {
+  min-width: 34px;
+  padding: 4px 6px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  font-variant-numeric: tabular-nums;
+}
+
+.rgb-cell {
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.rgb-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rgb-r {
+  color: #dc2626;
+}
+
+.rgb-g {
+  color: #16a34a;
+}
+
+.rgb-b {
+  color: #2563eb;
+}
+
+.confidence-table td {
+  color: #475569;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
