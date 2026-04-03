@@ -5,7 +5,10 @@ interface ImageUploaderProps {
 export const ImageUploader = ({ onFileSelected }: ImageUploaderProps) => {
   return (
     <label className="uploader">
-      <span>Upload Onet screenshot</span>
+      <div className="uploader-content">
+        <strong className="uploader-title">Choose Onet screenshot</strong>
+        <span className="uploader-sub">Drop or click to select a screenshot</span>
+      </div>
       <input
         type="file"
         accept="image/*"

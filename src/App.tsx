@@ -29,7 +29,7 @@ function App() {
   
   const [pairs, setPairs] = useState<ValidPair[]>([])
   const [pairIndex, setPairIndex] = useState(0)
-  const [status, setStatus] = useState('Upload an image to start')
+  const [status, setStatus] = useState('Ready — upload a screenshot to begin')
   const [isProcessing, setIsProcessing] = useState(false)
   const [detectedTiles, setDetectedTiles] = useState<TileDetection[]>([])
   const [showDetectedTiles, setShowDetectedTiles] = useState(false)
@@ -41,11 +41,23 @@ function App() {
   const imageUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile])
   const currentPair = pairs[pairIndex] ?? null
 
+  // read debug flag from localStorage (controls debug UI visibility)
+  const debug = typeof window !== 'undefined' && localStorage.getItem('debug') === 'true'
+
   useEffect(() => {
     return () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl)
     }
   }, [imageUrl])
+
+  // Auto-process when a new image is selected
+  useEffect(() => {
+    if (imageFile) {
+      // kick off processing automatically
+      void processImage()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageFile])
 
   const processImage = async () => {
     if (!imageFile || isProcessing) return
@@ -63,16 +75,40 @@ function App() {
 
       let built: RgbMatrixBuildResult
       if (detected && detected.tiles.length > 10) {
+        // Auto-calc rows/cols based on average detected tile size and frame bounds
+      const dets = detected.detections
+      // Use the first detected tile's size as representative. Add a small
+      // margin to account for detection shrinkage so we don't undercount tiles.
+      const first = dets[0]
+      const tileW = Math.max(1, Math.round(first.width) + 7)
+      const tileH = Math.max(1, Math.round(first.height) + 5)
+        const frameW = Math.max(1, detected.frame.width)
+        const frameH = Math.max(1, detected.frame.height)
+
+      let autoCols = Math.max(1, Math.round(frameW / tileW))
+      let autoRows = Math.max(1, Math.round(frameH / tileH))
+
+        // sanity checks: fall back to detector's cluster counts if results look wrong
+        if (detected.cols && detected.cols > 0 && (autoCols > detected.cols * 2 || autoCols < 1)) autoCols = detected.cols
+        if (detected.rows && detected.rows > 0 && (autoRows > detected.rows * 2 || autoRows < 1)) autoRows = detected.rows
+
+        // limit unreasonable sizes
+        autoCols = Math.min(autoCols, 64)
+        autoRows = Math.min(autoRows, 64)
+
         const frameTiles = splitFrameIntoTiles(preprocessed, detected.frame, {
-          rows: boardRows,
-          cols: boardCols,
+          rows: autoRows,
+          cols: autoCols,
         })
-        built = buildAverageRgbMatrixFromTiles(frameTiles, boardRows, boardCols)
+        built = buildAverageRgbMatrixFromTiles(frameTiles, autoRows, autoCols)
         setDetectedTiles(detected.detections)
         setDetectedFrame(detected.frame)
-        setDetectedRows(boardRows)
-        setDetectedCols(boardCols)
-        setStatus(`Detected frame with fixed grid ${boardRows} rows x ${boardCols} cols.`)
+        setDetectedRows(autoRows)
+        setDetectedCols(autoCols)
+        // update the global board rows/cols so downstream UI and splitting use the detected size
+        setBoardRows(autoRows)
+        setBoardCols(autoCols)
+        setStatus(`Auto-detected grid: ${autoRows} rows × ${autoCols} cols — tile-only processing complete.`)
       } else {
         const boardRegion = detectBoardRegion(preprocessed)
         const boardCanvas = cropBoard(preprocessed, boardRegion)
@@ -82,16 +118,15 @@ function App() {
         setDetectedFrame(null)
         setDetectedRows(0)
         setDetectedCols(0)
-        setStatus(`Fallback grid mode used (${boardRows}x${boardCols}).`)
+        setStatus(`Fallback grid used: ${boardRows} rows × ${boardCols} cols — tile-only processing complete.`)
       }
 
       setMatrix(built.matrix)
       const tagM = tagRgbMatrix(built.matrix, 3)
       setTileTags(tagM)
       const p = findPairs(tagM)
-      setPairs(p)
-      setPairIndex(0)
-      setStatus((prev) => `${prev} Tile-only mode complete.`)
+  setPairs(p)
+  setPairIndex(0)
     } catch {
       setDetectedTiles([])
       setDetectedFrame(null)
@@ -106,34 +141,12 @@ function App() {
 
   return (
     <main className="app">
-      <h1>Onet Screenshot Solver</h1>
+      <h1>Onet Solver — Screenshot Assistant</h1>
       <p className="status">{status}</p>
 
       <div className="toolbar">
         <ImageUploader onFileSelected={setImageFile} />
-        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-          Cols:
-          <input
-            type="number"
-            min={1}
-            value={boardCols}
-            onChange={(e) => setBoardCols(Math.max(1, Number(e.target.value) || 1))}
-            style={{ width: 68 }}
-          />
-        </label>
-        <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-          Rows:
-          <input
-            type="number"
-            min={1}
-            value={boardRows}
-            onChange={(e) => setBoardRows(Math.max(1, Number(e.target.value) || 1))}
-            style={{ width: 68 }}
-          />
-        </label>
-        <button type="button" onClick={processImage} disabled={!imageFile || isProcessing}>
-          {isProcessing ? 'Processing...' : 'Process'}
-        </button>
+        {/* Processing is automatic after upload */}
         <button
           type="button"
           onClick={() => setPairIndex((prev) => (pairs.length === 0 ? 0 : (prev + 1) % pairs.length))}
@@ -141,27 +154,28 @@ function App() {
         >
           Next hint
         </button>
-        <button type="button" onClick={() => setShowDetectedTiles((prev) => !prev)} disabled={detectedTiles.length === 0}>
-          {showDetectedTiles ? 'Hide RGB area' : 'Show RGB area'}
-        </button>
-        <button type="button" onClick={() => setShowDetails((prev) => !prev)}>
-          {showDetails ? 'Hide details' : 'Show details'}
-        </button>
+        {debug && (
+          <>
+            <button type="button" onClick={() => setShowDetectedTiles((prev) => !prev)} disabled={detectedTiles.length === 0}>
+              {showDetectedTiles ? 'Hide RGB area' : 'Show RGB area'}
+            </button>
+            <button type="button" onClick={() => setShowDetails((prev) => !prev)}>
+              {showDetails ? 'Hide details' : 'Show details'}
+            </button>
+          </>
+        )}
       </div>
 
       <div className="grid">
-        <section className="panel">
-          <h2>Screenshot</h2>
-          <BoardCanvas
-            imageUrl={imageUrl}
-            highlightedTiles={detectedTiles}
-            showHighlightedTiles={showDetectedTiles}
-            frame={detectedFrame}
-            frameRows={detectedRows}
-            frameCols={detectedCols}
-            pair={currentPair}
-          />
-        </section>
+        <BoardCanvas
+          imageUrl={imageUrl}
+          highlightedTiles={detectedTiles}
+          showHighlightedTiles={showDetectedTiles}
+          frame={detectedFrame}
+          frameRows={detectedRows}
+          frameCols={detectedCols}
+          pair={currentPair}
+        />
         {showDetails && (
           <section className="panel">
             <PairOverlay pair={currentPair} />

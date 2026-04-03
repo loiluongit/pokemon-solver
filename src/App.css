@@ -24,13 +24,22 @@ h1 {
 }
 
 .uploader {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 8px 12px;
+  position: relative;
+  display: inline-block;
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #0f172a 0%, #0b1220 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45), inset 0 -4px 20px rgba(255,255,255,0.02);
+  cursor: pointer;
+  transition: transform 120ms ease;
 }
+.uploader:hover { transform: translateY(-2px); }
+
+.uploader input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+.uploader-title { display:block; font-size: 14px; letter-spacing: 0.6px }
+.uploader-sub { display:block; font-size: 12px; opacity: 0.85 }
 
 .grid {
   display: grid;
@@ -47,9 +56,11 @@ h1 {
 
 .board-canvas {
   width: 100%;
-  border: 1px dashed #bbb;
-  border-radius: 8px;
-  background: #fafafa;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #0b1220, #071025);
+  box-shadow: 0 10px 40px rgba(2,6,23,0.7) inset, 0 8px 24px rgba(2,6,23,0.6);
+  border: 2px solid rgba(255,255,255,0.03);
+  outline: 2px solid rgba(99,102,241,0.08);
 }
 
 .overlay-panel {
