@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react'
 import type { TileDetection, TileFrame } from '../cv/tileDetect'
 import type { ValidPair, Point as SolverPoint } from '../solver/types'
@@ -89,6 +90,17 @@ export const BoardCanvas = ({
             ctx.lineTo(x, frameY + frame.height)
             ctx.stroke()
           }
+          // draw the first detected tile (if any) with a special highlight
+          if (_highlightedTiles && _highlightedTiles.length > 0) {
+            const first = _highlightedTiles[0]
+            ctx.save()
+            ctx.strokeStyle = '#2563eb'
+            ctx.lineWidth = 3
+            ctx.setLineDash([6, 4])
+            ctx.strokeRect(first.x, first.y + extra, first.width, first.height)
+            // (badge removed)
+            ctx.restore()
+          }
         }
       }
       // draw pair path if available
@@ -113,14 +125,19 @@ export const BoardCanvas = ({
           offsetY = extra
         }
 
+        // Neon-style path: layered strokes for outer glow, mid glow and inner core
         ctx.save()
-        ctx.strokeStyle = 'red'
-        ctx.lineWidth = 3
+        ctx.lineJoin = 'round'
+        ctx.lineCap = 'round'
+
+  // outer glow (red)
+  ctx.shadowBlur = 24
+  ctx.shadowColor = 'rgba(255,60,60,0.9)'
+  ctx.strokeStyle = 'rgba(255,80,80,0.25)'
+  ctx.lineWidth = 14
         ctx.beginPath()
         pair.path.forEach((p, i) => {
           const pp = p as SolverPoint
-          // solver uses a padded board (1-cell border) internally; shift coordinates
-          // back by 1 to map to the visible grid
           const px = pp.c - 1
           const py = pp.r - 1
           const x = offsetX + px * cellX + cellX / 2
@@ -129,16 +146,34 @@ export const BoardCanvas = ({
           else ctx.lineTo(x, y)
         })
         ctx.stroke()
-        // endpoints
-        const start = pair.path[0] as SolverPoint
-        const end = pair.path[pair.path.length - 1] as SolverPoint
-        const sx = offsetX + (start.c - 1) * cellX + cellX / 2
-        const sy = offsetY + (start.r - 1) * cellY + cellY / 2
-        const ex = offsetX + (end.c - 1) * cellX + cellX / 2
-        const ey = offsetY + (end.r - 1) * cellY + cellY / 2
-        ctx.fillStyle = 'rgba(255,0,0,0.9)'
-        ctx.beginPath(); ctx.arc(sx, sy, 6, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.arc(ex, ey, 6, 0, Math.PI * 2); ctx.fill()
+
+  // mid glow (red)
+  ctx.shadowBlur = 14
+  ctx.shadowColor = 'rgba(255,90,90,0.95)'
+  ctx.strokeStyle = 'rgba(255,100,100,0.95)'
+  ctx.lineWidth = 7
+        ctx.stroke()
+
+        // core (sharp)
+        ctx.shadowBlur = 0
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)'
+        ctx.lineWidth = 2
+        ctx.stroke()
+
+  // small neon endpoint dots (subtle)
+  const start = pair.path[0] as SolverPoint
+  const end = pair.path[pair.path.length - 1] as SolverPoint
+  const sx = offsetX + (start.c - 1) * cellX + cellX / 2
+  const sy = offsetY + (start.r - 1) * cellY + cellY / 2
+  const ex = offsetX + (end.c - 1) * cellX + cellX / 2
+  const ey = offsetY + (end.r - 1) * cellY + cellY / 2
+
+  ctx.shadowBlur = 12
+  ctx.shadowColor = 'rgba(255,80,80,0.95)'
+  ctx.fillStyle = 'rgba(255,100,100,0.95)'
+  ctx.beginPath(); ctx.arc(sx, sy, 3, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(ex, ey, 3, 0, Math.PI * 2); ctx.fill()
+  ctx.shadowBlur = 0
         ctx.restore()
       }
     }

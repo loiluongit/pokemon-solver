@@ -1,22 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { detectBoardRegion, cropBoard } from './features/cv/boardDetect'
-import { splitBoardIntoTiles, splitFrameIntoTiles } from './features/cv/gridSplit'
-import { loadOpenCv } from './features/cv/opencvLoader'
-import { preprocessImage } from './features/cv/preprocess'
-import { detectOnetTiles, type TileDetection, type TileFrame } from './features/cv/tileDetect'
+import { type TileDetection, type TileFrame } from './features/cv/tileDetect'
 import { MatrixPanel } from './features/debug/MatrixPanel'
 import { PairOverlay } from './features/overlay/PairOverlay'
-import {
-  buildAverageRgbMatrixFromTiles,
-  tagRgbMatrix,
-  type RgbMatrixBuildResult,
-  type RgbValue,
-} from './features/recognition/buildMatrix'
+import { type RgbValue } from './features/recognition/buildMatrix'
+import runPipeline, { type PipelineResult } from './features/processing/runPipeline'
 import type { ValidPair } from './features/solver/types'
 import { ImageUploader } from './features/upload/ImageUploader'
 import { BoardCanvas } from './features/preview/BoardCanvas'
-import findPairs from './features/solver/findPairs'
 
 // Defaults: 16 columns x 9 rows
 
@@ -64,70 +55,28 @@ function App() {
     setIsProcessing(true)
 
     try {
-      setStatus('Loading OpenCV...')
-      const cvReady = await loadOpenCv()
-      setStatus(cvReady ? 'OpenCV loaded. Processing image...' : 'OpenCV unavailable, using fallback.')
+      setStatus('Processing image...')
+      const result: PipelineResult = await runPipeline(imageFile, boardRows, boardCols)
 
-      const bitmap = await createImageBitmap(imageFile)
-      const preprocessed = await preprocessImage(bitmap)
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      const detected = cvReady ? detectOnetTiles(preprocessed) : null
+      setMatrix(result.matrix)
+      setTileTags(result.tags)
+      setPairs(result.pairs)
+      setPairIndex(0)
 
-      let built: RgbMatrixBuildResult
-      if (detected && detected.tiles.length > 10) {
-        // Auto-calc rows/cols based on average detected tile size and frame bounds
-      const dets = detected.detections
-      // Use the first detected tile's size as representative. Add a small
-      // margin to account for detection shrinkage so we don't undercount tiles.
-      const first = dets[0]
-      const tileW = Math.max(1, Math.round(first.width) + 7)
-      const tileH = Math.max(1, Math.round(first.height) + 5)
-        const frameW = Math.max(1, detected.frame.width)
-        const frameH = Math.max(1, detected.frame.height)
+      setDetectedTiles(result.detectedTiles)
+      setDetectedFrame(result.detectedFrame)
+      setDetectedRows(result.detectedRows)
+      setDetectedCols(result.detectedCols)
 
-      let autoCols = Math.max(1, Math.round(frameW / tileW))
-      let autoRows = Math.max(1, Math.round(frameH / tileH))
-
-        // sanity checks: fall back to detector's cluster counts if results look wrong
-        if (detected.cols && detected.cols > 0 && (autoCols > detected.cols * 2 || autoCols < 1)) autoCols = detected.cols
-        if (detected.rows && detected.rows > 0 && (autoRows > detected.rows * 2 || autoRows < 1)) autoRows = detected.rows
-
-        // limit unreasonable sizes
-        autoCols = Math.min(autoCols, 64)
-        autoRows = Math.min(autoRows, 64)
-
-        const frameTiles = splitFrameIntoTiles(preprocessed, detected.frame, {
-          rows: autoRows,
-          cols: autoCols,
-        })
-        built = buildAverageRgbMatrixFromTiles(frameTiles, autoRows, autoCols)
-        setDetectedTiles(detected.detections)
-        setDetectedFrame(detected.frame)
-        setDetectedRows(autoRows)
-        setDetectedCols(autoCols)
-        // update the global board rows/cols so downstream UI and splitting use the detected size
-        setBoardRows(autoRows)
-        setBoardCols(autoCols)
-        setStatus(`Auto-detected grid: ${autoRows} rows × ${autoCols} cols — tile-only processing complete.`)
-      } else {
-        const boardRegion = detectBoardRegion(preprocessed)
-        const boardCanvas = cropBoard(preprocessed, boardRegion)
-        const tiles = splitBoardIntoTiles(boardCanvas, { rows: boardRows, cols: boardCols })
-        built = buildAverageRgbMatrixFromTiles(tiles, boardRows, boardCols)
-        setDetectedTiles([])
-        setDetectedFrame(null)
-        setDetectedRows(0)
-        setDetectedCols(0)
-        setStatus(`Fallback grid used: ${boardRows} rows × ${boardCols} cols — tile-only processing complete.`)
+      // update the global board rows/cols so downstream UI and splitting use the detected size
+      if (result.detectedRows && result.detectedCols) {
+        setBoardRows(result.detectedRows)
+        setBoardCols(result.detectedCols)
       }
 
-      setMatrix(built.matrix)
-      const tagM = tagRgbMatrix(built.matrix, 3)
-      setTileTags(tagM)
-      const p = findPairs(tagM)
-  setPairs(p)
-  setPairIndex(0)
-    } catch {
+      setStatus(result.status)
+    } catch (err) {
+      console.error(err)
       setDetectedTiles([])
       setDetectedFrame(null)
       setDetectedRows(0)
@@ -141,7 +90,7 @@ function App() {
 
   return (
     <main className="app">
-      <h1>Onet Solver — Screenshot Assistant</h1>
+      <h1>Pokémon Solver</h1>
       <p className="status">{status}</p>
 
       <div className="toolbar">
